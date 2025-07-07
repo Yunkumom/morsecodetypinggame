@@ -10,8 +10,8 @@
 
   <h1>Morse Code Typing Game</h1>
 
-  <button onclick="startGame()">Start Game</button>
-  <button onclick="resetGame()">Reset</button>
+  <button id="startBtn">Start Game</button>
+  <button id="resetBtn">Reset</button>
 
   <div id="gameArea" style="display:none">
     <p>What letter is this Morse code?</p>
@@ -19,9 +19,9 @@
     <div id="timer">Time Left: 30s</div>
 
     <input type="text" id="answer" maxlength="1" autofocus />
-    <button id="submitBtn" onclick="checkAnswer()">Submit</button>
-    <button id="playBtn" onclick="playCurrentMorse()">Play Morse</button>
-    <button id="nextBtn" onclick="newQuestion()" disabled>Next</button>
+    <button id="submitBtn">Submit</button>
+    <button id="playBtn">Play Morse</button>
+    <button id="nextBtn" disabled>Next</button>
 
     <div class="result">
       <p id="feedback"></p>
@@ -36,7 +36,173 @@
   <audio id="bingo" src="https://cdn.pixabay.com/audio/2022/03/03/audio_83b4f47f90.mp3"></audio>
   <audio id="wrongSound" src="https://cdn.pixabay.com/audio/2022/03/03/audio_842e27c004.mp3"></audio>
 
-  <!-- 外部腳本 -->
-  <script src="morsetgscript.js" defer></script>
+  <!-- 直接內嵌腳本，確保全域函式可用 -->
+  <script>
+    /********************
+     * Morse Typing Game
+     ********************/
+
+    /* --- Morse mapping --- */
+    const morseMap = {
+      A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".",
+      F: "..-.", G: "--.", H: "....", I: "..", J: ".---",
+      K: "-.-", L: ".-..", M: "--", N: "-.", O: "---",
+      P: ".--.", Q: "--.-", R: ".-.", S: "...", T: "-",
+      U: "..-", V: "...-", W: ".--", X: "-..-", Y: "-.--", Z: "--.."
+    };
+
+    /* --- 固定題庫順序 --- */
+    const letters = ["L", "O", "I", "D"];
+    let letterIndex = 0;
+    let currentLetter = "";
+
+    let timer;
+    let timeLeft = 30;
+    let correct = 0;
+    let wrong = 0;
+
+    /* --- DOM 快取 --- */
+    const gameArea  = document.getElementById("gameArea");
+    const timerEl   = document.getElementById("timer");
+    const morseEl   = document.getElementById("morse");
+    const answerEl  = document.getElementById("answer");
+    const feedbackEl= document.getElementById("feedback");
+    const correctEl = document.getElementById("correct");
+    const wrongEl   = document.getElementById("wrong");
+    const nextBtn   = document.getElementById("nextBtn");
+    const submitBtn = document.getElementById("submitBtn");
+    const playBtn   = document.getElementById("playBtn");
+
+    /* ---------- 遊戲流程 ---------- */
+    function startGame() {
+      gameArea.style.display = "block";
+      resetScore();
+      letterIndex = 0;
+      newQuestion();
+    }
+
+    function resetGame() {
+      location.reload();
+    }
+
+    function resetScore() {
+      correct = 0;
+      wrong   = 0;
+      correctEl.textContent = 0;
+      wrongEl.textContent   = 0;
+    }
+
+    /* ----- 題目產生與計時 ----- */
+    function newQuestion() {
+      // UI 初始化
+      nextBtn.disabled   = true;
+      submitBtn.disabled = false;
+      feedbackEl.textContent = "";
+      answerEl.value     = "";
+      answerEl.disabled  = false;
+      answerEl.focus();
+
+      // Timer
+      clearInterval(timer);
+      timeLeft = 30;
+      updateTimer();
+      timer = setInterval(handleTick, 1000);
+
+      // 依順序取題
+      currentLetter = letters[letterIndex];
+      letterIndex   = (letterIndex + 1) % letters.length;
+
+      const code = morseMap[currentLetter];
+      morseEl.textContent = code;
+      playMorseAudio(code);   // 題目出現即播放一次
+    }
+
+    function handleTick() {
+      timeLeft--;
+      updateTimer();
+      if (timeLeft <= 0) {
+        clearInterval(timer);
+        handleAnswer(null, true);   // timeout
+      }
+    }
+
+    function updateTimer() {
+      timerEl.textContent = `Time Left: ${timeLeft}s`;
+    }
+
+    /* ----- 互動 ----- */
+    function playCurrentMorse() {
+      playMorseAudio(morseMap[currentLetter]);
+    }
+
+    function checkAnswer() {
+      const userInput = answerEl.value.trim().toUpperCase();
+      handleAnswer(userInput === currentLetter, false);
+    }
+
+    /* ----- 結果處理 ----- */
+    function handleAnswer(isCorrect, isTimeout) {
+      clearInterval(timer);
+
+      submitBtn.disabled = true;
+      answerEl.disabled  = true;
+      nextBtn.disabled   = false;
+
+      if (isTimeout) {
+        wrong++;
+        showFeedback(`⏰ Time's up! Correct answer: ${currentLetter}`, "orange");
+      } else if (isCorrect) {
+        correct++;
+        playSoundSafely("bingo");
+        showFeedback("✔ Correct!", "green");
+      } else {
+        wrong++;
+        playSoundSafely("wrongSound");
+        showFeedback(`✘ Wrong! Correct answer: ${currentLetter}`, "red");
+      }
+
+      correctEl.textContent = correct;
+      wrongEl.textContent   = wrong;
+    }
+
+    function showFeedback(msg, color) {
+      feedbackEl.textContent = msg;
+      feedbackEl.style.color = color;
+    }
+
+    /* ---------- 音訊 ---------- */
+    function playSoundSafely(id) {
+      const audio = document.getElementById(id);
+      if (audio.readyState >= 3) audio.play();
+      else audio.oncanplaythrough = () => audio.play();
+    }
+
+    function playMorseAudio(code) {
+      let i = 0;
+      function playNext() {
+        if (i >= code.length) return;
+        const char  = code[i++];
+        const sound = document.getElementById(char === "." ? "dot" : "dash");
+        sound.currentTime = 0;
+        if (sound.readyState >= 3) {
+          sound.play();
+          setTimeout(playNext, 400);
+        } else {
+          sound.oncanplaythrough = () => {
+            sound.play();
+            setTimeout(playNext, 400);
+          };
+        }
+      }
+      playNext();
+    }
+
+    /* ---------- 事件綁定 ---------- */
+    document.getElementById("startBtn").addEventListener("click", startGame);
+    document.getElementById("resetBtn").addEventListener("click", resetGame);
+    submitBtn.addEventListener("click", checkAnswer);
+    playBtn.addEventListener("click", playCurrentMorse);
+    nextBtn.addEventListener("click", newQuestion);
+  </script>
 </body>
 </html>

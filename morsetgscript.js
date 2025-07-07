@@ -1,17 +1,12 @@
 /********************
  * Morse Typing Game
  ********************/
-
-/* --- Morse mapping --- */
 const morseMap = {
-  A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".",
-  F: "..-.", G: "--.", H: "....", I: "..", J: ".---",
-  K: "-.-", L: ".-..", M: "--", N: "-.", O: "---",
-  P: ".--.", Q: "--.-", R: ".-.", S: "...", T: "-",
+  A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".", F: "..-.", G: "--.", H: "....", I: "..", J: ".---",
+  K: "-.-", L: ".-..", M: "--", N: "-.", O: "---", P: ".--.", Q: "--.-", R: ".-.", S: "...", T: "-",
   U: "..-", V: "...-", W: ".--", X: "-..-", Y: "-.--", Z: "--.."
 };
 
-/* --- 題庫與狀態 --- */
 const letters = ["L", "O", "I", "D"];
 let letterIndex = 0;
 let currentLetter = "";
@@ -32,7 +27,6 @@ const nextBtn   = document.getElementById("nextBtn");
 const submitBtn = document.getElementById("submitBtn");
 const playBtn   = document.getElementById("playBtn");
 
-// 快取所有音訊元素，方便管理並提高效能
 const audioElements = {
     dot: document.getElementById("dot"),
     dash: document.getElementById("dash"),
@@ -42,16 +36,14 @@ const audioElements = {
 
 /* ---------- 遊戲流程 ---------- */
 function startGame() {
-    // 【關鍵修正】在使用者點擊 Start 後，立即載入所有音訊。
-    // 這個動作由使用者直接觸發，可以解鎖瀏覽器的音訊播放權限。
+    // 首次互動時載入音訊，以獲得瀏覽器播放許可
     try {
         for (const key in audioElements) {
             audioElements[key].load();
         }
     } catch (e) {
-        console.error("Audio loading failed. This might happen on some mobile browsers.", e);
+        console.error("Audio loading failed:", e);
     }
-
     gameArea.style.display = "block";
     document.getElementById("startBtn").style.display = 'none';
     resetScore();
@@ -70,27 +62,29 @@ function resetScore() {
   wrongEl.textContent   = 0;
 }
 
-/* ----- 題目產生與計時 ----- */
 function newQuestion() {
+  // UI 初始化
   nextBtn.disabled   = true;
   submitBtn.disabled = false;
+  playBtn.disabled   = false; // 確保 Play 按鈕在新題目時是可用的
   feedbackEl.textContent = "";
   answerEl.value     = "";
   answerEl.disabled  = false;
   answerEl.focus();
 
+  // Timer
   clearInterval(timer);
   timeLeft = 30;
   updateTimer();
   timer = setInterval(handleTick, 1000);
 
+  // 依順序取題
   currentLetter = letters[letterIndex];
   letterIndex   = (letterIndex + 1) % letters.length;
   const code = morseMap[currentLetter];
   morseEl.textContent = code;
   
-  // 延遲一小段時間再播放，確保UI更新完成，讓體驗更流暢
-  setTimeout(() => playMorseAudio(code), 100);
+  // 【核心修改】此處不再自動播放聲音
 }
 
 function handleTick() {
@@ -124,6 +118,7 @@ function handleAnswer(isCorrect, isTimeout) {
   submitBtn.disabled = true;
   answerEl.disabled  = true;
   nextBtn.disabled   = false;
+  playBtn.disabled   = true; // 回答後禁用 Play 按鈕，直到下一題
 
   if (isTimeout) {
     wrong++;
@@ -157,26 +152,22 @@ function playSoundSafely(id) {
 
 function playMorseAudio(code) {
   let i = 0;
-  playBtn.disabled = true; // 播放時禁用按鈕，防止重疊播放
-
+  playBtn.disabled = true;
   function playNext() {
     if (i >= code.length) {
-      playBtn.disabled = false; // 播放完畢，重新啟用按鈕
+      playBtn.disabled = false;
       return;
     }
     const char = code[i++];
     const soundId = char === "." ? "dot" : "dash";
-    const sound = audioElements[soundId]; // 使用快取的音訊元素
-
-    // 使用 'ended' 事件來確保一個播完再播下一個，節奏更準確
+    const sound = audioElements[soundId];
     sound.onended = () => {
-      setTimeout(playNext, 150); // 點和劃之間的短暫間隔
+      setTimeout(playNext, 150);
     };
-    
     sound.currentTime = 0;
     sound.play().catch(e => {
         console.error(`Morse audio failed for '${char}':`, e);
-        playBtn.disabled = false; // 如果播放失敗，也要重新啟用按鈕
+        playBtn.disabled = false;
     });
   }
   playNext();
@@ -189,10 +180,9 @@ submitBtn.addEventListener("click", checkAnswer);
 playBtn.addEventListener("click", playCurrentMorse);
 nextBtn.addEventListener("click", newQuestion);
 
-// 為輸入框加入鍵盤事件，實現 Enter 提交
 answerEl.addEventListener("keydown", function(event) {
   if (event.key === "Enter" && !submitBtn.disabled) {
-    event.preventDefault(); // 防止表單預設提交行為
+    event.preventDefault();
     checkAnswer();
   }
 });

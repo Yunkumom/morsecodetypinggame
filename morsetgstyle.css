@@ -1,0 +1,31 @@
+/* 基本佈局與排版 */
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  padding: 40px;
+}
+
+/* 按鈕與輸入框 */
+input,
+button {
+  font-size: 1.2rem;
+  padding: 5px 12px;
+  margin: 4px;
+}
+
+#timer {
+  font-size: 1.5rem;
+  color: #333;
+  margin-top: 10px;
+}
+
+.result {
+  margin-top: 20px;
+  font-size: 1.2rem;
+}
+
+/* Next 按鈕停用狀態 */
+#nextBtn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Morse Code Typing Game</title>
+  <!-- 外部樣式表 -->
+  <link rel="stylesheet" href="morsetgstyle.css">
+</head>
+<body>
+
+  <h1>Morse Code Typing Game</h1>
+
+  <button onclick="startGame()">Start Game</button>
+  <button onclick="resetGame()">Reset</button>
+
+  <div id="gameArea" style="display:none">
+    <p>What letter is this Morse code?</p>
+    <h2 id="morse">. . .</h2>
+    <div id="timer">Time Left: 30s</div>
+
+    <input type="text" id="answer" maxlength="1" autofocus />
+    <button id="submitBtn" onclick="checkAnswer()">Submit</button>
+    <button id="playBtn" onclick="playCurrentMorse()">Play Morse</button>
+    <button id="nextBtn" onclick="newQuestion()" disabled>Next</button>
+
+    <div class="result">
+      <p id="feedback"></p>
+      <p>✅ Correct: <span id="correct">0</span></p>
+      <p>❌ Incorrect: <span id="wrong">0</span></p>
+    </div>
+  </div>
+
+  <!-- Audio assets (hidden) -->
+  <audio id="dot" src="https://cdn.pixabay.com/audio/2022/03/15/audio_771ad67106.mp3"></audio>
+  <audio id="dash" src="https://cdn.pixabay.com/audio/2022/03/15/audio_8ac3161f6f.mp3"></audio>
+  <audio id="bingo" src="https://cdn.pixabay.com/audio/2022/03/03/audio_83b4f47f90.mp3"></audio>
+  <audio id="wrongSound" src="https://cdn.pixabay.com/audio/2022/03/03/audio_842e27c004.mp3"></audio>
+
+  <!-- 外部腳本 -->
+  <script src="morsetgscript.js" defer></script>
+</body>
+</html>

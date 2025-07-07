@@ -22,6 +22,7 @@ let correct = 0;
 let wrong = 0;
 
 /* --- DOM 快取 --- */
+const gameArea = document.getElementById("gameArea"); // 這個在 HTML script 裡有，獨立JS檔需要補上
 const timerEl = document.getElementById("timer");
 const morseEl = document.getElementById("morse");
 const answerEl = document.getElementById("answer");
@@ -30,10 +31,12 @@ const correctEl = document.getElementById("correct");
 const wrongEl = document.getElementById("wrong");
 const nextBtn = document.getElementById("nextBtn");
 const submitBtn = document.getElementById("submitBtn");
+const playBtn = document.getElementById("playBtn"); // 【修正1】補上對 playBtn 的 DOM 快取
 
 /* ---------- 遊戲流程 ---------- */
 function startGame() {
   document.getElementById("gameArea").style.display = "block";
+  document.getElementById("startBtn").style.display = 'none'; // 也可以隱藏開始按鈕
   resetScore();
   letterIndex = 0;
   newQuestion();
@@ -131,27 +134,53 @@ function showFeedback(msg, color) {
 /* ---------- 音訊 ---------- */
 function playSoundSafely(id) {
   const audio = document.getElementById(id);
-  if (audio.readyState >= 3) audio.play();
-  else audio.oncanplaythrough = () => audio.play();
+  if (audio) {
+    audio.currentTime = 0; // 確保可以重播
+    if (audio.readyState >= 3) {
+        audio.play().catch(e => console.error("Audio play failed:", e));
+    } else {
+        audio.oncanplaythrough = () => audio.play().catch(e => console.error("Audio play failed:", e));
+    }
+  }
 }
 
 /* Morse 點線播放 */
 function playMorseAudio(code) {
   let i = 0;
-  function playNext() {
-    if (i >= code.length) return;
-    const char  = code[i++];
-    const sound = document.getElementById(char === "." ? "dot" : "dash");
-    sound.currentTime = 0;
-    if (sound.readyState >= 3) {
-      sound.play();
-      setTimeout(playNext, 400);
-    } else {
-      sound.oncanplaythrough = () => {
-        sound.play();
-        setTimeout(playNext, 400);
-      };
+  playBtn.disabled = true; // 播放時禁用按鈕，防止重疊播放
+
+   function playNext() {
+    if (i >= code.length) {
+      playBtn.disabled = false; // 播放完畢，重新啟用按鈕
+      return;
     }
+    const char  = code[i++];
+    const soundId = char === "." ? "dot" : "dash";
+    const sound = document.getElementById(soundId);
+    
+    sound.onended = () => {
+      // 播放完畢後，等待一小段時間再播下一個
+      setTimeout(playNext, 150);
+    };
+    
+    sound.currentTime = 0;
+    sound.play().catch(e => console.error("Morse audio failed:", e));
   }
   playNext();
 }
+
+/* ---------- 事件綁定 ---------- */
+document.getElementById("startBtn").addEventListener("click", startGame);
+document.getElementById("resetBtn").addEventListener("click", resetGame);
+submitBtn.addEventListener("click", checkAnswer);
+playBtn.addEventListener("click", playCurrentMorse);
+nextBtn.addEventListener("click", newQuestion);
+
+// 【修正2】為輸入框加入鍵盤事件，實現 Enter 提交
+answerEl.addEventListener("keydown", function(event) {
+  // 檢查是否按下 Enter 鍵且提交按鈕是可用的
+  if (event.key === "Enter" && !submitBtn.disabled) {
+    event.preventDefault(); // 防止表單預設提交行為 (如果有的話)
+    checkAnswer();
+  }
+});

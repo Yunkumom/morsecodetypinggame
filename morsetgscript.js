@@ -26,6 +26,7 @@ const wrongEl   = document.getElementById("wrong");
 const nextBtn   = document.getElementById("nextBtn");
 const submitBtn = document.getElementById("submitBtn");
 const playBtn   = document.getElementById("playBtn");
+const questionCounterEl = document.getElementById("questionCounter"); // 已新增
 
 const audioElements = {
     dot: document.getElementById("dot"),
@@ -36,7 +37,6 @@ const audioElements = {
 
 /* ---------- 遊戲流程 ---------- */
 function startGame() {
-    // 首次互動時載入音訊，以獲得瀏覽器播放許可
     try {
         for (const key in audioElements) {
             audioElements[key].load();
@@ -51,22 +51,16 @@ function startGame() {
     newQuestion();
 }
 
-function resetGame() {
-  location.reload();
-}
-
-function resetScore() {
-  correct = 0;
-  wrong   = 0;
-  correctEl.textContent = 0;
-  wrongEl.textContent   = 0;
-}
+function resetGame() { location.reload(); }
+function resetScore() { correct = 0; wrong = 0; correctEl.textContent = 0; wrongEl.textContent = 0; }
 
 function newQuestion() {
+  questionCounterEl.textContent = `Question ${letterIndex + 1} / ${letters.length}`; // 已新增
+  
   // UI 初始化
   nextBtn.disabled   = true;
   submitBtn.disabled = false;
-  playBtn.disabled   = false; // 確保 Play 按鈕在新題目時是可用的
+  playBtn.disabled   = false;
   feedbackEl.textContent = "";
   answerEl.value     = "";
   answerEl.disabled  = false;
@@ -83,8 +77,6 @@ function newQuestion() {
   letterIndex   = (letterIndex + 1) % letters.length;
   const code = morseMap[currentLetter];
   morseEl.textContent = code;
-  
-  // 【核心修改】此處不再自動播放聲音
 }
 
 function handleTick() {
@@ -96,21 +88,11 @@ function handleTick() {
   }
 }
 
-function updateTimer() {
-  timerEl.textContent = `Time Left: ${timeLeft}s`;
-}
+function updateTimer() { timerEl.textContent = `Time Left: ${timeLeft}s`; }
 
 /* ----- 互動 ----- */
-function playCurrentMorse() {
-  if (!playBtn.disabled) {
-    playMorseAudio(morseMap[currentLetter]);
-  }
-}
-
-function checkAnswer() {
-  const userInput = answerEl.value.trim().toUpperCase();
-  handleAnswer(userInput === currentLetter, false);
-}
+function playCurrentMorse() { if (!playBtn.disabled) { playMorseAudio(morseMap[currentLetter]); } }
+function checkAnswer() { const userInput = answerEl.value.trim().toUpperCase(); handleAnswer(userInput === currentLetter, false); }
 
 /* ----- 結果處理 ----- */
 function handleAnswer(isCorrect, isTimeout) {
@@ -118,7 +100,7 @@ function handleAnswer(isCorrect, isTimeout) {
   submitBtn.disabled = true;
   answerEl.disabled  = true;
   nextBtn.disabled   = false;
-  playBtn.disabled   = true; // 回答後禁用 Play 按鈕，直到下一題
+  playBtn.disabled   = true;
 
   if (isTimeout) {
     wrong++;
@@ -136,10 +118,7 @@ function handleAnswer(isCorrect, isTimeout) {
   wrongEl.textContent   = wrong;
 }
 
-function showFeedback(msg, color) {
-  feedbackEl.textContent = msg;
-  feedbackEl.style.color = color;
-}
+function showFeedback(msg, color) { feedbackEl.textContent = msg; feedbackEl.style.color = color; }
 
 /* ---------- 音訊 ---------- */
 function playSoundSafely(id) {
@@ -154,21 +133,13 @@ function playMorseAudio(code) {
   let i = 0;
   playBtn.disabled = true;
   function playNext() {
-    if (i >= code.length) {
-      playBtn.disabled = false;
-      return;
-    }
+    if (i >= code.length) { playBtn.disabled = false; return; }
     const char = code[i++];
     const soundId = char === "." ? "dot" : "dash";
     const sound = audioElements[soundId];
-    sound.onended = () => {
-      setTimeout(playNext, 150);
-    };
+    sound.onended = () => { setTimeout(playNext, 150); };
     sound.currentTime = 0;
-    sound.play().catch(e => {
-        console.error(`Morse audio failed for '${char}':`, e);
-        playBtn.disabled = false;
-    });
+    sound.play().catch(e => { console.error(`Morse audio failed for '${char}':`, e); playBtn.disabled = false; });
   }
   playNext();
 }
@@ -179,10 +150,4 @@ document.getElementById("resetBtn").addEventListener("click", resetGame);
 submitBtn.addEventListener("click", checkAnswer);
 playBtn.addEventListener("click", playCurrentMorse);
 nextBtn.addEventListener("click", newQuestion);
-
-answerEl.addEventListener("keydown", function(event) {
-  if (event.key === "Enter" && !submitBtn.disabled) {
-    event.preventDefault();
-    checkAnswer();
-  }
-});
+answerEl.addEventListener("keydown", function(event) { if (event.key === "Enter" && !submitBtn.disabled) { event.preventDefault(); checkAnswer(); } });

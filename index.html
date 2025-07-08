@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Morse Code Typing Game</title>
+  <!-- 連結到您的 CSS 樣式表 -->
   <link rel="stylesheet" href="morsetgstyle.css">
 </head>
 <body>
@@ -14,7 +15,7 @@
 
   <div id="gameArea" style="display:none">
     <p>What letter is this Morse code?</p>
-    <div id="questionCounter"></div> <!-- 已新增 -->
+    <div id="questionCounter"></div>
     <h2 id="morse">. . .</h2>
     <div id="timer">Time Left: 30s</div>
 
@@ -30,11 +31,12 @@
     </div>
   </div>
 
-  <audio id="dot" src="https://cdn.pixabay.com/audio/2022/03/15/audio_771ad67106.mp3" preload="auto"></audio>
-  <audio id="dash" src="https://cdn.pixabay.com/audio/2022/03/15/audio_8ac3161f6f.mp3" preload="auto"></audio>
+  <!-- 只保留提示音，dot/dash 的音效由 JS 直接產生 -->
   <audio id="bingo" src="https://cdn.pixabay.com/audio/2022/03/03/audio_83b4f47f90.mp3" preload="auto"></audio>
   <audio id="wrongSound" src="https://cdn.pixabay.com/audio/2022/03/03/audio_842e27c004.mp3" preload="auto"></audio>
 
+  <!-- 連結到您的 JavaScript 檔案 -->
+  <!-- 請注意，這裡的 <script> 標籤已使用您指定的檔案名稱 morsetgscript.js -->
   <script src="morsetgscript.js"></script>
 </body>
 </html>

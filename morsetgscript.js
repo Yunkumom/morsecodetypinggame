@@ -1,5 +1,6 @@
 /********************
- * Morse Typing Game
+ * Morse Typing Game – Web‑Audio API 版本
+ * (最穩定、最可靠的方案)
  ********************/
 const morseMap = {
   A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".", F: "..-.", G: "--.", H: "....", I: "..", J: ".---",
@@ -7,10 +8,11 @@ const morseMap = {
   U: "..-", V: "...-", W: ".--", X: "-..-", Y: "-.--", Z: "--.."
 };
 
-const baseLetters = ["L", "O", "I", "D"];
+const baseLetters = ["L", "O", "I", "D"];  // 4 個字母產生 8 道題目
 const totalQuestions = 8;
 
-let letterIndex = 0;
+/* --- 遊戲狀態 --- */
+let letterIndex = 0; // 範圍: 0–7
 let currentLetter = "";
 let timer;
 let timeLeft = 30;
@@ -18,59 +20,87 @@ let correct = 0;
 let wrong = 0;
 
 /* --- DOM 快取 --- */
-const gameArea = document.getElementById("gameArea");
-const gamePromptEl = document.querySelector("#gameArea p");
-const timerEl = document.getElementById("timer");
-const morseEl = document.getElementById("morse");
-const answerEl = document.getElementById("answer");
-const feedbackEl = document.getElementById("feedback");
-const correctEl = document.getElementById("correct");
-const wrongEl = document.getElementById("wrong");
-const nextBtn = document.getElementById("nextBtn");
-const submitBtn = document.getElementById("submitBtn");
-const playBtn = document.getElementById("playBtn");
-const questionCounterEl = document.getElementById("questionCounter");
+const $ = (id) => document.getElementById(id);
+const gameArea = $("gameArea");
+const gamePromptEl = gameArea.querySelector("p");
+const timerEl = $("timer");
+const morseEl = $("morse");
+const answerEl = $("answer");
+const feedbackEl = $("feedback");
+const correctEl = $("correct");
+const wrongEl = $("wrong");
+const nextBtn = $("nextBtn");
+const submitBtn = $("submitBtn");
+const playBtn = $("playBtn");
+const questionCounterEl = $("questionCounter");
 
-const audioElements = {
-    dot: document.getElementById("dot"),
-    dash: document.getElementById("dash"),
-    bingo: document.getElementById("bingo"),
-    wrongSound: document.getElementById("wrongSound")
-};
+const bingoAudio = $("bingo");
+const wrongAudio = $("wrongSound");
+
+/* --- Web Audio API 聲音產生器 --- */
+// 建立音訊上下文 (AudioContext)，這是 Web Audio API 的入口
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+
+// 產生嗶聲的函式
+function beep(duration = 120, freq = 700) {
+  if (!audioCtx) return; // 如果音訊上下文未初始化，則不執行
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = "sine"; // 音色
+  osc.frequency.value = freq; // 音高
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start();
+  gain.gain.setValueAtTime(1, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration / 1000);
+
+  osc.stop(audioCtx.currentTime + duration / 1000);
+  return new Promise(res => setTimeout(res, duration + 30));
+}
+
+// 使用 async/await 來依序播放摩斯電碼
+async function playMorseAudio(code) {
+  playBtn.disabled = true;
+  for (const char of code) {
+    if (char === ".") {
+      await beep(120, 700); // 短音
+    } else if (char === "-") {
+      await beep(360, 700); // 長音
+    }
+    await new Promise(r => setTimeout(r, 80)); // 點劃之間的間隔
+  }
+  playBtn.disabled = false;
+}
+
+function playSoundSafely(el) {
+  if (!audioCtx || !el) return;
+  el.currentTime = 0;
+  el.play().catch(() => {});
+}
 
 /* ---------- 遊戲流程 ---------- */
 function startGame() {
-    // 【最終音訊解鎖方案】
-    // 遍歷所有音訊元素，嘗試播放並立即暫停它們。
-    // 這是目前最可靠的、用來「喚醒」瀏覽器音訊系統的方法。
-    Object.values(audioElements).forEach(audio => {
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-            playPromise.then(_ => {
-                audio.pause();
-                audio.currentTime = 0; // 歸零，以便下次從頭播放
-            }).catch(error => {
-                // 這個 catch 很重要，可以防止瀏覽器在控制台顯示不必要的錯誤。
-                // 即使這裡報錯，使用者互動也已經最大程度地嘗試解鎖音訊了。
-            });
-        }
-    });
+  // 在使用者首次互動時，初始化並激活音訊上下文
+  if (!audioCtx) {
+    audioCtx = new AudioContext();
+  }
+  audioCtx.resume();
 
-    gameArea.style.display = "block";
-    document.getElementById("startBtn").style.display = 'none';
-    resetScore();
-    letterIndex = 0;
-    newQuestion();
+  gameArea.style.display = "block";
+  $("startBtn").style.display = "none";
+  resetScore();
+  letterIndex = 0;
+  newQuestion();
 }
 
 function resetGame() { location.reload(); }
 function resetScore() { correct = 0; wrong = 0; correctEl.textContent = 0; wrongEl.textContent = 0; }
 
 function newQuestion() {
-  if (letterIndex >= totalQuestions) {
-    endGame();
-    return;
-  }
+  if (letterIndex >= totalQuestions) { return endGame(); }
 
   questionCounterEl.textContent = `Question ${letterIndex + 1} / ${totalQuestions}`;
   currentLetter = baseLetters[Math.floor(letterIndex / 2)];
@@ -79,20 +109,20 @@ function newQuestion() {
   if (isFirstOfPair) {
     gamePromptEl.textContent = "Listen carefully and guess the letter!";
     morseEl.textContent = "???";
-    morseEl.style.color = '#999';
+    morseEl.style.color = "#999";
   } else {
     gamePromptEl.textContent = "What letter is this? (Same as the last round)";
     morseEl.textContent = morseMap[currentLetter];
-    morseEl.style.color = '#0056b3';
+    morseEl.style.color = "#0056b3";
   }
-  
-  nextBtn.disabled   = true;
+
+  nextBtn.disabled = true;
   nextBtn.textContent = "Next";
   submitBtn.disabled = false;
-  playBtn.disabled   = false;
+  playBtn.disabled = false;
   feedbackEl.textContent = "";
-  answerEl.value     = "";
-  answerEl.disabled  = false;
+  answerEl.value = "";
+  answerEl.disabled = false;
   answerEl.focus();
 
   clearInterval(timer);
@@ -106,48 +136,38 @@ function handleTick() {
   updateTimer();
   if (timeLeft <= 0) { clearInterval(timer); handleAnswer(null, true); }
 }
+const updateTimer = () => timerEl.textContent = `Time Left: ${timeLeft}s`;
 
-function updateTimer() { timerEl.textContent = `Time Left: ${timeLeft}s`; }
+function checkAnswer() {
+  handleAnswer(answerEl.value.trim().toUpperCase() === currentLetter, false);
+}
 
-/* ----- 互動 ----- */
-function playCurrentMorse() { if (!playBtn.disabled) { playMorseAudio(morseMap[currentLetter]); } }
-function checkAnswer() { const userInput = answerEl.value.trim().toUpperCase(); handleAnswer(userInput === currentLetter, false); }
-
-/* ----- 結果處理 ----- */
 function handleAnswer(isCorrect, isTimeout) {
   clearInterval(timer);
   submitBtn.disabled = true;
-  answerEl.disabled  = true;
-  nextBtn.disabled   = false;
-  playBtn.disabled   = true;
+  answerEl.disabled = true;
+  nextBtn.disabled = false;
+  playBtn.disabled = true;
 
-  if (letterIndex === totalQuestions - 1) {
-    nextBtn.textContent = "Finish";
-  }
+  if (letterIndex === totalQuestions - 1) nextBtn.textContent = "Finish";
 
   if (isTimeout) {
-    wrong++;
-    showFeedback(`⏰ Time's up! Correct answer: ${currentLetter}`, "orange");
+    wrong++; showFeedback(`⏰ Time's up! Correct answer: ${currentLetter}`, "orange");
   } else if (isCorrect) {
-    correct++;
-    playSoundSafely("bingo");
-    showFeedback("✔ Correct!", "green");
+    correct++; playSoundSafely(bingoAudio); showFeedback("✔ Correct!", "green");
   } else {
-    wrong++;
-    playSoundSafely("wrongSound");
-    showFeedback(`✘ Wrong! Correct answer: ${currentLetter}`, "red");
+    wrong++; playSoundSafely(wrongAudio); showFeedback(`✘ Wrong! Correct answer: ${currentLetter}`, "red");
   }
   correctEl.textContent = correct;
-  wrongEl.textContent   = wrong;
+  wrongEl.textContent = wrong;
   letterIndex++;
 }
 
 function showFeedback(msg, color) { feedbackEl.textContent = msg; feedbackEl.style.color = color; }
 
 function endGame() {
-  feedbackEl.innerHTML = `🎉 Game Over! <br> Your final score is ${correct} / ${totalQuestions}.`;
-  feedbackEl.style.color = 'blue';
-  
+  feedbackEl.innerHTML = `🎉 Game Over!<br>Your final score is ${correct} / ${totalQuestions}.`;
+  feedbackEl.style.color = "blue";
   answerEl.disabled = true;
   submitBtn.disabled = true;
   nextBtn.disabled = true;
@@ -156,34 +176,10 @@ function endGame() {
   questionCounterEl.textContent = "All questions completed!";
 }
 
-/* ---------- 音訊 ---------- */
-function playSoundSafely(id) {
-  const audio = audioElements[id];
-  if (audio) { audio.currentTime = 0; audio.play().catch(e => { /* 忽略單一音效播放錯誤 */ }); }
-}
-
-function playMorseAudio(code) {
-  let i = 0;
-  playBtn.disabled = true;
-  function playNext() {
-    if (i >= code.length) { playBtn.disabled = false; return; }
-    const char = code[i++];
-    const soundId = char === "." ? "dot" : "dash";
-    const sound = audioElements[soundId];
-    sound.onended = () => { setTimeout(playNext, 150); };
-    sound.currentTime = 0;
-    sound.play().catch(e => {
-        console.error(`Morse audio failed for '${char}':`, e);
-        playBtn.disabled = false;
-    });
-  }
-  playNext();
-}
-
 /* ---------- 事件綁定 ---------- */
-document.getElementById("startBtn").addEventListener("click", startGame);
-document.getElementById("resetBtn").addEventListener("click", resetGame);
+$("startBtn").addEventListener("click", startGame);
+$("resetBtn").addEventListener("click", resetGame);
 submitBtn.addEventListener("click", checkAnswer);
-playBtn.addEventListener("click", playCurrentMorse);
+playBtn.addEventListener("click", () => playMorseAudio(morseMap[currentLetter] || ""));
 nextBtn.addEventListener("click", newQuestion);
-answerEl.addEventListener("keydown", function(event) { if (event.key === "Enter" && !submitBtn.disabled) { event.preventDefault(); checkAnswer(); } });
+answerEl.addEventListener("keydown", (e) => { if (e.key === "Enter" && !submitBtn.disabled) { e.preventDefault(); checkAnswer(); } });

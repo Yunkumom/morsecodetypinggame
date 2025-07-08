@@ -7,11 +7,10 @@ const morseMap = {
   U: "..-", V: "...-", W: ".--", X: "-..-", Y: "-.--", Z: "--.."
 };
 
-// 【修改1】設定4個基礎字母和總題數
-const baseLetters = ["S", "A", "V", "E"]; // 4個字母將產生8題
+const baseLetters = ["L", "O", "I", "D"];
 const totalQuestions = 8;
 
-let letterIndex = 0; // 代表當前是第幾題 (從 0 到 7)
+let letterIndex = 0;
 let currentLetter = "";
 let timer;
 let timeLeft = 30;
@@ -20,7 +19,7 @@ let wrong = 0;
 
 /* --- DOM 快取 --- */
 const gameArea = document.getElementById("gameArea");
-const gamePromptEl = document.querySelector("#gameArea p"); // 快取提示文字元素
+const gamePromptEl = document.querySelector("#gameArea p");
 const timerEl = document.getElementById("timer");
 const morseEl = document.getElementById("morse");
 const answerEl = document.getElementById("answer");
@@ -41,9 +40,22 @@ const audioElements = {
 
 /* ---------- 遊戲流程 ---------- */
 function startGame() {
-    try {
-        for (const key in audioElements) { audioElements[key].load(); }
-    } catch (e) { console.error("Audio loading failed:", e); }
+    // 【最終音訊解鎖方案】
+    // 遍歷所有音訊元素，嘗試播放並立即暫停它們。
+    // 這是目前最可靠的、用來「喚醒」瀏覽器音訊系統的方法。
+    Object.values(audioElements).forEach(audio => {
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(_ => {
+                audio.pause();
+                audio.currentTime = 0; // 歸零，以便下次從頭播放
+            }).catch(error => {
+                // 這個 catch 很重要，可以防止瀏覽器在控制台顯示不必要的錯誤。
+                // 即使這裡報錯，使用者互動也已經最大程度地嘗試解鎖音訊了。
+            });
+        }
+    });
+
     gameArea.style.display = "block";
     document.getElementById("startBtn").style.display = 'none';
     resetScore();
@@ -54,39 +66,28 @@ function startGame() {
 function resetGame() { location.reload(); }
 function resetScore() { correct = 0; wrong = 0; correctEl.textContent = 0; wrongEl.textContent = 0; }
 
-
-// 【修改2】重寫整個 newQuestion 函式以符合新規則
 function newQuestion() {
-  // 檢查遊戲是否結束
   if (letterIndex >= totalQuestions) {
     endGame();
     return;
   }
 
   questionCounterEl.textContent = `Question ${letterIndex + 1} / ${totalQuestions}`;
-
-  // 決定當前題目使用的字母
-  // 題 0,1 都用 baseLetters[0]
-  // 題 2,3 都用 baseLetters[1], 以此類推
   currentLetter = baseLetters[Math.floor(letterIndex / 2)];
-
-  // 根據奇數題/偶數題來設定顯示
   const isFirstOfPair = (letterIndex % 2 === 0);
 
   if (isFirstOfPair) {
-    // 這是奇數題 (1, 3, 5, 7) - 聽力挑戰
     gamePromptEl.textContent = "Listen carefully and guess the letter!";
     morseEl.textContent = "???";
-    morseEl.style.color = '#999'; // 讓 '???' 顏色淡一點
+    morseEl.style.color = '#999';
   } else {
-    // 這是偶數題 (2, 4, 6, 8) - 視覺確認
     gamePromptEl.textContent = "What letter is this? (Same as the last round)";
     morseEl.textContent = morseMap[currentLetter];
-    morseEl.style.color = '#0056b3'; // 恢復正常顏色
+    morseEl.style.color = '#0056b3';
   }
   
-  // UI 初始化
   nextBtn.disabled   = true;
+  nextBtn.textContent = "Next";
   submitBtn.disabled = false;
   playBtn.disabled   = false;
   feedbackEl.textContent = "";
@@ -94,7 +95,6 @@ function newQuestion() {
   answerEl.disabled  = false;
   answerEl.focus();
 
-  // Timer
   clearInterval(timer);
   timeLeft = 30;
   updateTimer();
@@ -121,7 +121,6 @@ function handleAnswer(isCorrect, isTimeout) {
   nextBtn.disabled   = false;
   playBtn.disabled   = true;
 
-  // 答完最後一題後，將 Next 按鈕文字改為 Finish
   if (letterIndex === totalQuestions - 1) {
     nextBtn.textContent = "Finish";
   }
@@ -140,19 +139,15 @@ function handleAnswer(isCorrect, isTimeout) {
   }
   correctEl.textContent = correct;
   wrongEl.textContent   = wrong;
-
-  // 準備進入下一題
   letterIndex++;
 }
 
 function showFeedback(msg, color) { feedbackEl.textContent = msg; feedbackEl.style.color = color; }
 
-// 【修改3】新增遊戲結束函式
 function endGame() {
   feedbackEl.innerHTML = `🎉 Game Over! <br> Your final score is ${correct} / ${totalQuestions}.`;
   feedbackEl.style.color = 'blue';
   
-  // 禁用所有遊戲互動按鈕
   answerEl.disabled = true;
   submitBtn.disabled = true;
   nextBtn.disabled = true;
@@ -161,11 +156,10 @@ function endGame() {
   questionCounterEl.textContent = "All questions completed!";
 }
 
-
 /* ---------- 音訊 ---------- */
 function playSoundSafely(id) {
   const audio = audioElements[id];
-  if (audio) { audio.currentTime = 0; audio.play().catch(e => console.error(`Audio play failed for ${id}:`, e)); }
+  if (audio) { audio.currentTime = 0; audio.play().catch(e => { /* 忽略單一音效播放錯誤 */ }); }
 }
 
 function playMorseAudio(code) {
@@ -178,7 +172,10 @@ function playMorseAudio(code) {
     const sound = audioElements[soundId];
     sound.onended = () => { setTimeout(playNext, 150); };
     sound.currentTime = 0;
-    sound.play().catch(e => { console.error(`Morse audio failed for '${char}':`, e); playBtn.disabled = false; });
+    sound.play().catch(e => {
+        console.error(`Morse audio failed for '${char}':`, e);
+        playBtn.disabled = false;
+    });
   }
   playNext();
 }

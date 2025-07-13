@@ -175,6 +175,11 @@ function handleTick() {
 }
 const updateTimer = () => timerEl.textContent = `Time Left: ${timeLeft}s`;
 
+function checkAnswer() {
+  const userAnswer = answerEl.value.trim().toUpperCase();
+  handleAnswer(userAnswer === currentAnswer, false);
+}
+
 function handleAnswer(isCorrect, isTimeout) {
   clearInterval(timer);
   submitBtn.disabled = true;

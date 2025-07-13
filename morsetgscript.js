@@ -10,12 +10,14 @@ const morseMap = {
 
 const baseLetters = ["L", "O", "I", "D"];  // 4 個字母產生 8 道題目
 const totalQuestions = 8;
+const QUESTION_TIME = 6000; // 每題 6000 秒
+
 
 /* --- 遊戲狀態 --- */
 let letterIndex = 0; // 範圍: 0–7
 let currentLetter = "";
 let timer;
-let timeLeft = 6000; // 100 分鐘 (6000 秒)
+let timeLeft = 6000; // 每題 30 秒倒數計時
 let correct = 0;
 let wrong = 0;
 
@@ -126,7 +128,7 @@ function newQuestion() {
   answerEl.focus();
 
   clearInterval(timer);
-  timeLeft = 30;
+  timeLeft = 6000;
   updateTimer();
   timer = setInterval(handleTick, 1000);
 }

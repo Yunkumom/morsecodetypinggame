@@ -15,7 +15,7 @@ const totalQuestions = 8;
 let letterIndex = 0; // 範圍: 0–7
 let currentLetter = "";
 let timer;
-let timeLeft = 30;
+let timeLeft = 6000; // 100 分鐘 (6000 秒)
 let correct = 0;
 let wrong = 0;
 

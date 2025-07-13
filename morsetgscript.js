@@ -9,15 +9,16 @@ const morseMap = {
 };
 
 const baseLetters = ["L", "O", "I", "D"];  // 4 個字母產生 8 道題目
-const totalQuestions = 8;
+const wordQuestion = "LOID";
+const totalQuestions = 10;
 const QUESTION_TIME = 6000; // 每題 6000 秒
 
 
 /* --- 遊戲狀態 --- */
-let letterIndex = 0; // 範圍: 0–7
-let currentLetter = "";
+let letterIndex = 0; // 範圍: 0–9
+let currentAnswer = ""; //【修改】從 currentLetter 改為 currentAnswer，因為答案可能是單字
 let timer;
-let timeLeft = 6000; // 每題 30 秒倒數計時
+let timeLeft = 6000; // 每題 6000 秒倒數計時
 let correct = 0;
 let wrong = 0;
 
@@ -64,6 +65,7 @@ function beep(duration = 120, freq = 700) {
 }
 
 // 使用 async/await 來依序播放摩斯電碼
+// 使用 async/await 來依序播放摩斯電碼
 async function playMorseAudio(code) {
   playBtn.disabled = true;
   for (const char of code) {
@@ -71,11 +73,14 @@ async function playMorseAudio(code) {
       await beep(120, 700); // 短音
     } else if (char === "-") {
       await beep(360, 700); // 長音
+    } else if (char === " ") { //【新增】處理單字中字母的間隔
+      await new Promise(r => setTimeout(r, 200)); 
     }
     await new Promise(r => setTimeout(r, 80)); // 點劃之間的間隔
   }
   playBtn.disabled = false;
 }
+
 
 function playSoundSafely(el) {
   if (!audioCtx || !el) return;
@@ -99,25 +104,54 @@ function startGame() {
 }
 
 function resetGame() { location.reload(); }
-function resetScore() { correct = 0; wrong = 0; correctEl.textContent = 0; wrongEl.textContent = 0; }
+function resetScore() { correct = 0; wrong = 0; correctEl.textContent = 0; 
+  wrongEl.textContent = 0; }
 
 function newQuestion() {
   if (letterIndex >= totalQuestions) { return endGame(); }
 
   questionCounterEl.textContent = `Question ${letterIndex + 1} / ${totalQuestions}`;
-  currentLetter = baseLetters[Math.floor(letterIndex / 2)];
-  const isFirstOfPair = (letterIndex % 2 === 0);
+  let currentMorseCode = "";
 
-  if (isFirstOfPair) {
-    gamePromptEl.textContent = "Listen carefully and guess the letter!";
-    morseEl.textContent = "???";
-    morseEl.style.color = "#999";
+  //【新增】用 if/else 區分單字母題和單字題
+  if (letterIndex < 8) {
+    // 前 8 題的邏輯
+    currentAnswer = baseLetters[Math.floor(letterIndex / 2)];
+    currentMorseCode = morseMap[currentAnswer];
+    answerEl.maxLength = 1; // 輸入框只允許一個字母
+
+    const isFirstOfPair = (letterIndex % 2 === 0);
+    if (isFirstOfPair) {
+      gamePromptEl.textContent = "Listen carefully and guess the letter!";
+      morseEl.textContent = "???";
+      morseEl.style.color = "#999";
+    } else {
+      gamePromptEl.textContent = "What letter is this? (Same as the last round)";
+      morseEl.textContent = currentMorseCode;
+      morseEl.style.color = "#0056b3";
+    }
   } else {
-    gamePromptEl.textContent = "What letter is this? (Same as the last round)";
-    morseEl.textContent = morseMap[currentLetter];
-    morseEl.style.color = "#0056b3";
+    // 第 9, 10 題的邏輯
+    currentAnswer = wordQuestion;
+    // 將單字轉換為帶有空格的摩斯電碼字串
+    currentMorseCode = wordQuestion.split('').map(char => morseMap[char]).join(' ');
+    answerEl.maxLength = 4; // 輸入框允許四個字母
+
+    if (letterIndex === 8) { // 第 9 題
+      gamePromptEl.textContent = "Listen carefully and guess the WORD!";
+      morseEl.textContent = "???";
+      morseEl.style.color = "#999";
+    } else { // 第 10 題
+      gamePromptEl.textContent = "What word is this? (Same as the last round)";
+      morseEl.textContent = currentMorseCode;
+      morseEl.style.color = "#0056b3";
+    }
   }
 
+  // 將要播放的摩斯碼儲存到按鈕上，這樣更安全
+  playBtn.dataset.morse = currentMorseCode;
+
+  // UI 初始化 (和原本大部分相同)
   nextBtn.disabled = true;
   nextBtn.textContent = "Next";
   submitBtn.disabled = false;
@@ -127,6 +161,7 @@ function newQuestion() {
   answerEl.disabled = false;
   answerEl.focus();
 
+  // Timer
   clearInterval(timer);
   timeLeft = 6000;
   updateTimer();
@@ -140,10 +175,6 @@ function handleTick() {
 }
 const updateTimer = () => timerEl.textContent = `Time Left: ${timeLeft}s`;
 
-function checkAnswer() {
-  handleAnswer(answerEl.value.trim().toUpperCase() === currentLetter, false);
-}
-
 function handleAnswer(isCorrect, isTimeout) {
   clearInterval(timer);
   submitBtn.disabled = true;
@@ -154,11 +185,13 @@ function handleAnswer(isCorrect, isTimeout) {
   if (letterIndex === totalQuestions - 1) nextBtn.textContent = "Finish";
 
   if (isTimeout) {
-    wrong++; showFeedback(`⏰ Time's up! Correct answer: ${currentLetter}`, "orange");
+    // 【第1處修改】把 currentLetter 改成 currentAnswer
+    wrong++; showFeedback(`⏰ Time's up! Correct answer: ${currentAnswer}`, "orange");
   } else if (isCorrect) {
     correct++; playSoundSafely(bingoAudio); showFeedback("✔ Correct!", "green");
   } else {
-    wrong++; playSoundSafely(wrongAudio); showFeedback(`✘ Wrong! Correct answer: ${currentLetter}`, "red");
+    // 【第2處修改】把 currentLetter 改成 currentAnswer
+    wrong++; playSoundSafely(wrongAudio); showFeedback(`✘ Wrong! Correct answer: ${currentAnswer}`, "red");
   }
   correctEl.textContent = correct;
   wrongEl.textContent = wrong;
@@ -182,6 +215,6 @@ function endGame() {
 $("startBtn").addEventListener("click", startGame);
 $("resetBtn").addEventListener("click", resetGame);
 submitBtn.addEventListener("click", checkAnswer);
-playBtn.addEventListener("click", () => playMorseAudio(morseMap[currentLetter] || ""));
+playBtn.addEventListener("click", () => playMorseAudio(playBtn.dataset.morse || ""));
 nextBtn.addEventListener("click", newQuestion);
 answerEl.addEventListener("keydown", (e) => { if (e.key === "Enter" && !submitBtn.disabled) { e.preventDefault(); checkAnswer(); } });
